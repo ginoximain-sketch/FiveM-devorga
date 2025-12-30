@@ -1,16 +1,14 @@
-// pages/index.js
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
+import { supabase } from '../lib/supabase';
 import styles from '../styles/Dashboard.module.css';
 
 export default function FiveMTaskManager() {
   const [tasks, setTasks] = useState([]);
-  const [developers, setDevelopers] = useState([
-    'Dev1', 'Dev2', 'Dev3', 'Dev4'
-  ]);
+  const [developers, setDevelopers] = useState(['Dev1', 'Dev2', 'Dev3', 'Dev4']);
+  const [loading, setLoading] = useState(true);
   const [newDev, setNewDev] = useState('');
   
-  // Formulaire nouvelle tâche
   const [showForm, setShowForm] = useState(false);
   const [taskForm, setTaskForm] = useState({
     title: '',
@@ -18,131 +16,203 @@ export default function FiveMTaskManager() {
     description: '',
     details: '',
     priority: 'moyenne',
-    createdBy: ''
+    created_by: ''
   });
 
-  // Filtres
   const [filters, setFilters] = useState({
     type: 'tous',
     status: 'tous',
     developer: 'tous'
   });
 
+  // État pour le système de rejet
+  const [rejectingTask, setRejectingTask] = useState(null);
+  const [bugsList, setBugsList] = useState('');
+
   useEffect(() => {
-    const saved = localStorage.getItem('fivem-tasks');
-    if (saved) setTasks(JSON.parse(saved));
+    fetchTasks();
     
-    const savedDevs = localStorage.getItem('fivem-devs');
-    if (savedDevs) setDevelopers(JSON.parse(savedDevs));
+    const subscription = supabase
+      .channel('tasks_changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'tasks' },
+        () => {
+          fetchTasks();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem('fivem-tasks', JSON.stringify(tasks));
-  }, [tasks]);
+  const fetchTasks = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Erreur:', error);
+    } else {
+      setTasks(data || []);
+    }
+    setLoading(false);
+  };
 
-  useEffect(() => {
-    localStorage.setItem('fivem-devs', JSON.stringify(developers));
-  }, [developers]);
-
-  const addTask = (e) => {
+  const addTask = async (e) => {
     e.preventDefault();
-    if (!taskForm.title || !taskForm.createdBy) {
+    if (!taskForm.title || !taskForm.created_by) {
       alert('Veuillez remplir au moins le titre et votre nom');
       return;
     }
 
     const newTask = {
-      id: Date.now(),
       ...taskForm,
       status: 'à faire',
-      createdAt: new Date().toISOString(),
-      assignedTo: null,
-      inProgressBy: null,
-      inProgressAt: null,
-      testedBy: null,
-      testedAt: null,
-      approvedBy: null,
-      approvedAt: null,
+      bugs_list: null,
+      rejected_by: null,
+      rejected_at: null,
       history: [{
         action: 'Tâche créée',
-        by: taskForm.createdBy,
+        by: taskForm.created_by,
         at: new Date().toISOString()
       }]
     };
 
-    setTasks([newTask, ...tasks]);
-    setTaskForm({
-      title: '',
-      type: 'script',
-      description: '',
-      details: '',
-      priority: 'moyenne',
-      createdBy: ''
-    });
-    setShowForm(false);
+    const { error } = await supabase
+      .from('tasks')
+      .insert([newTask]);
+
+    if (error) {
+      console.error('Erreur:', error);
+      alert('Erreur lors de la création');
+    } else {
+      setTaskForm({
+        title: '',
+        type: 'script',
+        description: '',
+        details: '',
+        priority: 'moyenne',
+        created_by: ''
+      });
+      setShowForm(false);
+    }
   };
 
-  const takeTask = (taskId, devName) => {
-    setTasks(tasks.map(task => {
-      if (task.id === taskId && task.status === 'à faire') {
-        return {
-          ...task,
-          status: 'en cours',
-          assignedTo: devName,
-          inProgressBy: devName,
-          inProgressAt: new Date().toISOString(),
-          history: [...task.history, {
-            action: 'Prise en charge',
-            by: devName,
-            at: new Date().toISOString()
-          }]
-        };
-      }
-      return task;
-    }));
+  const takeTask = async (taskId, devName) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    
+    const { error } = await supabase
+      .from('tasks')
+      .update({
+        status: 'en cours',
+        assigned_to: devName,
+        in_progress_by: devName,
+        in_progress_at: new Date().toISOString(),
+        bugs_list: null,
+        rejected_by: null,
+        rejected_at: null,
+        history: [...(task.history || []), {
+          action: 'Prise en charge',
+          by: devName,
+          at: new Date().toISOString()
+        }]
+      })
+      .eq('id', taskId);
+
+    if (error) console.error('Erreur:', error);
   };
 
-  const markAsTested = (taskId, devName) => {
-    setTasks(tasks.map(task => {
-      if (task.id === taskId && task.status === 'en cours') {
-        return {
-          ...task,
-          status: 'en test',
-          testedBy: devName,
-          testedAt: new Date().toISOString(),
-          history: [...task.history, {
-            action: 'Mis en test',
-            by: devName,
-            at: new Date().toISOString()
-          }]
-        };
-      }
-      return task;
-    }));
+  const markAsTested = async (taskId, devName) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    
+    const { error } = await supabase
+      .from('tasks')
+      .update({
+        status: 'en test',
+        tested_by: devName,
+        tested_at: new Date().toISOString(),
+        history: [...(task.history || []), {
+          action: 'Mis en test',
+          by: devName,
+          at: new Date().toISOString()
+        }]
+      })
+      .eq('id', taskId);
+
+    if (error) console.error('Erreur:', error);
   };
 
-  const approveTask = (taskId, devName) => {
-    setTasks(tasks.map(task => {
-      if (task.id === taskId && task.status === 'en test') {
-        return {
-          ...task,
-          status: 'approuvé',
-          approvedBy: devName,
-          approvedAt: new Date().toISOString(),
-          history: [...task.history, {
-            action: 'Approuvé et validé',
-            by: devName,
-            at: new Date().toISOString()
-          }]
-        };
-      }
-      return task;
-    }));
+  const approveTask = async (taskId, devName) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    
+    const { error } = await supabase
+      .from('tasks')
+      .update({
+        status: 'approuvé',
+        approved_by: devName,
+        approved_at: new Date().toISOString(),
+        bugs_list: null,
+        rejected_by: null,
+        rejected_at: null,
+        history: [...(task.history || []), {
+          action: 'Approuvé et validé',
+          by: devName,
+          at: new Date().toISOString()
+        }]
+      })
+      .eq('id', taskId);
+
+    if (error) console.error('Erreur:', error);
   };
 
-  const deleteTask = (taskId) => {
+  const rejectTask = async (taskId, devName) => {
+    if (!bugsList.trim()) {
+      alert('Veuillez décrire les bugs à corriger');
+      return;
+    }
+
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    
+    const { error } = await supabase
+      .from('tasks')
+      .update({
+        status: 'à corriger',
+        bugs_list: bugsList,
+        rejected_by: devName,
+        rejected_at: new Date().toISOString(),
+        history: [...(task.history || []), {
+          action: 'Rejeté - Bugs à corriger',
+          by: devName,
+          at: new Date().toISOString(),
+          bugs: bugsList
+        }]
+      })
+      .eq('id', taskId);
+
+    if (error) {
+      console.error('Erreur:', error);
+    } else {
+      setRejectingTask(null);
+      setBugsList('');
+    }
+  };
+
+  const deleteTask = async (taskId) => {
     if (confirm('Êtes-vous sûr de vouloir supprimer cette tâche ?')) {
-      setTasks(tasks.filter(task => task.id !== taskId));
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', taskId);
+      
+      if (error) console.error('Erreur:', error);
     }
   };
 
@@ -162,9 +232,20 @@ export default function FiveMTaskManager() {
   const filteredTasks = tasks.filter(task => {
     if (filters.type !== 'tous' && task.type !== filters.type) return false;
     if (filters.status !== 'tous' && task.status !== filters.status) return false;
-    if (filters.developer !== 'tous' && task.assignedTo !== filters.developer) return false;
+    if (filters.developer !== 'tous' && task.assigned_to !== filters.developer) return false;
     return true;
   });
+
+  const stats = {
+    total: tasks.length,
+    aFaire: tasks.filter(t => t.status === 'à faire').length,
+    enCours: tasks.filter(t => t.status === 'en cours').length,
+    enTest: tasks.filter(t => t.status === 'en test').length,
+    approuve: tasks.filter(t => t.status === 'approuvé').length,
+    aCorreger: tasks.filter(t => t.status === 'à corriger').length,
+    scripts: tasks.filter(t => t.type === 'script').length,
+    mappings: tasks.filter(t => t.type === 'mapping').length
+  };
 
   const getStatusColor = (status) => {
     switch(status) {
@@ -172,6 +253,7 @@ export default function FiveMTaskManager() {
       case 'en cours': return '#0d6efd';
       case 'en test': return '#fd7e14';
       case 'approuvé': return '#198754';
+      case 'à corriger': return '#dc3545';
       default: return '#6c757d';
     }
   };
@@ -185,28 +267,28 @@ export default function FiveMTaskManager() {
     }
   };
 
-  const stats = {
-    total: tasks.length,
-    aFaire: tasks.filter(t => t.status === 'à faire').length,
-    enCours: tasks.filter(t => t.status === 'en cours').length,
-    enTest: tasks.filter(t => t.status === 'en test').length,
-    approuve: tasks.filter(t => t.status === 'approuvé').length,
-    scripts: tasks.filter(t => t.type === 'script').length,
-    mappings: tasks.filter(t => t.type === 'mapping').length
-  };
+  if (loading) {
+    return (
+      <div className={styles.container}>
+        <header className={styles.header}>
+          <h1>🎮 Bastien Project Manager</h1>
+          <p>Chargement des données...</p>
+        </header>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.container}>
       <Head>
-        <title>FiveM Project Manager - Gestion de Développement</title>
+        <title>Bastien Project Manager</title>
       </Head>
 
       <header className={styles.header}>
-        <h1>🎮 FiveM Project Manager</h1>
-        <p>Gestion collaborative du développement serveur</p>
+        <h1>🎮 Bastien Project Manager</h1>
+        <p>Créé par Ginoxi avec amour ❤️</p>
       </header>
 
-      {/* Statistiques */}
       <div className={styles.statsGrid}>
         <div className={styles.statCard}>
           <h3>{stats.total}</h3>
@@ -224,6 +306,10 @@ export default function FiveMTaskManager() {
           <h3>{stats.enTest}</h3>
           <p>En Test</p>
         </div>
+        <div className={styles.statCard} style={{borderLeft: '4px solid #dc3545'}}>
+          <h3>{stats.aCorreger}</h3>
+          <p>À Corriger</p>
+        </div>
         <div className={styles.statCard} style={{borderLeft: '4px solid #198754'}}>
           <h3>{stats.approuve}</h3>
           <p>Approuvés</p>
@@ -234,7 +320,6 @@ export default function FiveMTaskManager() {
         </div>
       </div>
 
-      {/* Gestion des développeurs */}
       <div className={styles.devSection}>
         <h3>👥 Équipe de développement</h3>
         <div className={styles.devList}>
@@ -257,7 +342,6 @@ export default function FiveMTaskManager() {
         </div>
       </div>
 
-      {/* Bouton nouvelle tâche */}
       <div className={styles.actions}>
         <button 
           className={styles.btnPrimary}
@@ -267,7 +351,6 @@ export default function FiveMTaskManager() {
         </button>
       </div>
 
-      {/* Formulaire nouvelle tâche */}
       {showForm && (
         <div className={styles.taskForm}>
           <h3>Créer une nouvelle tâche</h3>
@@ -278,7 +361,7 @@ export default function FiveMTaskManager() {
                 <input
                   type="text"
                   required
-                  placeholder="Ex: Système de banque, MLO du commissariat..."
+                  placeholder="Ex: Système de banque..."
                   value={taskForm.title}
                   onChange={(e) => setTaskForm({...taskForm, title: e.target.value})}
                 />
@@ -313,8 +396,8 @@ export default function FiveMTaskManager() {
                 <label>Créé par *</label>
                 <select
                   required
-                  value={taskForm.createdBy}
-                  onChange={(e) => setTaskForm({...taskForm, createdBy: e.target.value})}
+                  value={taskForm.created_by}
+                  onChange={(e) => setTaskForm({...taskForm, created_by: e.target.value})}
                 >
                   <option value="">Sélectionner...</option>
                   {developers.map(dev => (
@@ -328,7 +411,7 @@ export default function FiveMTaskManager() {
               <label>Description courte</label>
               <textarea
                 rows="2"
-                placeholder="Description rapide de la tâche..."
+                placeholder="Description rapide..."
                 value={taskForm.description}
                 onChange={(e) => setTaskForm({...taskForm, description: e.target.value})}
               />
@@ -338,7 +421,7 @@ export default function FiveMTaskManager() {
               <label>Détails complets</label>
               <textarea
                 rows="5"
-                placeholder="Détails techniques, spécifications, ressources nécessaires, dépendances, etc..."
+                placeholder="Détails techniques..."
                 value={taskForm.details}
                 onChange={(e) => setTaskForm({...taskForm, details: e.target.value})}
               />
@@ -351,7 +434,6 @@ export default function FiveMTaskManager() {
         </div>
       )}
 
-      {/* Filtres */}
       <div className={styles.filters}>
         <select 
           value={filters.type}
@@ -370,6 +452,7 @@ export default function FiveMTaskManager() {
           <option value="à faire">À faire</option>
           <option value="en cours">En cours</option>
           <option value="en test">En test</option>
+          <option value="à corriger">À corriger</option>
           <option value="approuvé">Approuvés</option>
         </select>
 
@@ -384,11 +467,10 @@ export default function FiveMTaskManager() {
         </select>
       </div>
 
-      {/* Liste des tâches */}
       <div className={styles.tasksList}>
         {filteredTasks.length === 0 ? (
           <div className={styles.emptyState}>
-            <p>Aucune tâche pour le moment. Créez-en une !</p>
+            <p>📋 Aucune tâche pour le moment. Créez-en une !</p>
           </div>
         ) : (
           filteredTasks.map(task => (
@@ -411,9 +493,6 @@ export default function FiveMTaskManager() {
                     >
                       Priorité {task.priority}
                     </span>
-                    <span className={styles.timestamp}>
-                      Créé le {new Date(task.createdAt).toLocaleString('fr-FR')}
-                    </span>
                   </div>
                 </div>
                 <button 
@@ -435,47 +514,50 @@ export default function FiveMTaskManager() {
                 </div>
               )}
 
-              {/* Workflow */}
+              {task.bugs_list && (
+                <div className={styles.bugsAlert}>
+                  <strong>🐛 Bugs à corriger :</strong>
+                  <p>{task.bugs_list}</p>
+                  <small>Rejeté par {task.rejected_by} le {new Date(task.rejected_at).toLocaleString('fr-FR')}</small>
+                </div>
+              )}
+
               <div className={styles.workflow}>
                 <div className={styles.workflowStep}>
-                  <strong>💡 Idée:</strong> {task.createdBy}
+                  <strong>💡 Idée:</strong> {task.created_by}
                 </div>
                 
-                {task.inProgressBy && (
+                {task.in_progress_by && (
                   <div className={styles.workflowStep}>
-                    <strong>⚙️ Traité par:</strong> {task.inProgressBy}
-                    <span className={styles.timestamp}>
-                      {new Date(task.inProgressAt).toLocaleString('fr-FR')}
-                    </span>
+                    <strong>⚙️ Traité par:</strong> {task.in_progress_by}
                   </div>
                 )}
 
-                {task.testedBy && (
+                {task.tested_by && (
                   <div className={styles.workflowStep}>
-                    <strong>🧪 Testé par:</strong> {task.testedBy}
-                    <span className={styles.timestamp}>
-                      {new Date(task.testedAt).toLocaleString('fr-FR')}
-                    </span>
+                    <strong>🧪 Testé par:</strong> {task.tested_by}
                   </div>
                 )}
 
-                {task.approvedBy && (
+                {task.rejected_by && (
                   <div className={styles.workflowStep}>
-                    <strong>✅ Approuvé par:</strong> {task.approvedBy}
-                    <span className={styles.timestamp}>
-                      {new Date(task.approvedAt).toLocaleString('fr-FR')}
-                    </span>
+                    <strong>❌ Rejeté par:</strong> {task.rejected_by}
+                  </div>
+                )}
+
+                {task.approved_by && (
+                  <div className={styles.workflowStep}>
+                    <strong>✅ Approuvé par:</strong> {task.approved_by}
                   </div>
                 )}
               </div>
 
-              {/* Actions selon le statut */}
               <div className={styles.taskActions}>
-                {task.status === 'à faire' && (
+                {(task.status === 'à faire' || task.status === 'à corriger') && (
                   <div className={styles.actionGroup}>
                     <label>Prendre en charge:</label>
                     <select onChange={(e) => e.target.value && takeTask(task.id, e.target.value)}>
-                      <option value="">Sélectionner un dev...</option>
+                      <option value="">Sélectionner...</option>
                       {developers.map(dev => (
                         <option key={dev} value={dev}>{dev}</option>
                       ))}
@@ -487,7 +569,7 @@ export default function FiveMTaskManager() {
                   <div className={styles.actionGroup}>
                     <label>Marquer comme testé:</label>
                     <select onChange={(e) => e.target.value && markAsTested(task.id, e.target.value)}>
-                      <option value="">Sélectionner un dev...</option>
+                      <option value="">Sélectionner...</option>
                       {developers.map(dev => (
                         <option key={dev} value={dev}>{dev}</option>
                       ))}
@@ -496,38 +578,63 @@ export default function FiveMTaskManager() {
                 )}
 
                 {task.status === 'en test' && (
-                  <div className={styles.actionGroup}>
-                    <label>Approuver le travail:</label>
-                    <select onChange={(e) => e.target.value && approveTask(task.id, e.target.value)}>
-                      <option value="">Sélectionner un dev...</option>
-                      {developers.map(dev => (
-                        <option key={dev} value={dev}>{dev}</option>
-                      ))}
-                    </select>
-                  </div>
+                  <>
+                    {rejectingTask === task.id ? (
+                      <div className={styles.rejectForm}>
+                        <h4>🐛 Liste des bugs à corriger :</h4>
+                        <textarea
+                          rows="4"
+                          placeholder="Décrivez les bugs trouvés..."
+                          value={bugsList}
+                          onChange={(e) => setBugsList(e.target.value)}
+                          className={styles.bugsTextarea}
+                        />
+                        <div className={styles.rejectActions}>
+                          <select onChange={(e) => e.target.value && rejectTask(task.id, e.target.value)}>
+                            <option value="">Qui rejette ?</option>
+                            {developers.map(dev => (
+                              <option key={dev} value={dev}>{dev}</option>
+                            ))}
+                          </select>
+                          <button 
+                            onClick={() => {
+                              setRejectingTask(null);
+                              setBugsList('');
+                            }}
+                            className={styles.btnCancel}
+                          >
+                            Annuler
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className={styles.approvalActions}>
+                        <div className={styles.actionGroup}>
+                          <label>✅ Approuver:</label>
+                          <select onChange={(e) => e.target.value && approveTask(task.id, e.target.value)}>
+                            <option value="">Sélectionner...</option>
+                            {developers.map(dev => (
+                              <option key={dev} value={dev}>{dev}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <button 
+                          onClick={() => setRejectingTask(task.id)}
+                          className={styles.btnReject}
+                        >
+                          ❌ Rejeter (bugs trouvés)
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {task.status === 'approuvé' && (
                   <div className={styles.approvedMessage}>
-                    ✅ Tâche complétée et validée !
+                    ✅ Tâche complétée !
                   </div>
                 )}
               </div>
-
-              {/* Historique */}
-              <details className={styles.history}>
-                <summary>📋 Voir l'historique complet</summary>
-                <ul>
-                  {task.history.map((entry, index) => (
-                    <li key={index}>
-                      <strong>{entry.action}</strong> par {entry.by}
-                      <span className={styles.timestamp}>
-                        {new Date(entry.at).toLocaleString('fr-FR')}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </details>
             </div>
           ))
         )}
