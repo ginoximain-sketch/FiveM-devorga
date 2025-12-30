@@ -7,6 +7,7 @@ export default function FiveMTaskManager() {
   const [tasks, setTasks] = useState([]);
   const [developers, setDevelopers] = useState(['Dev1', 'Dev2', 'Dev3', 'Dev4']);
   const [loading, setLoading] = useState(true);
+  const [newDev, setNewDev] = useState('');
   
   const [showForm, setShowForm] = useState(false);
   const [taskForm, setTaskForm] = useState({
@@ -24,18 +25,15 @@ export default function FiveMTaskManager() {
     developer: 'tous'
   });
 
-  // Charger les tâches depuis Supabase
   useEffect(() => {
     fetchTasks();
     
-    // Écouter les changements en temps réel
     const subscription = supabase
       .channel('tasks_changes')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'tasks' },
-        (payload) => {
-          console.log('Changement détecté!', payload);
-          fetchTasks(); // Recharger les tâches
+        () => {
+          fetchTasks();
         }
       )
       .subscribe();
@@ -99,6 +97,7 @@ export default function FiveMTaskManager() {
 
   const takeTask = async (taskId, devName) => {
     const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
     
     const { error } = await supabase
       .from('tasks')
@@ -120,6 +119,7 @@ export default function FiveMTaskManager() {
 
   const markAsTested = async (taskId, devName) => {
     const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
     
     const { error } = await supabase
       .from('tasks')
@@ -140,6 +140,7 @@ export default function FiveMTaskManager() {
 
   const approveTask = async (taskId, devName) => {
     const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
     
     const { error } = await supabase
       .from('tasks')
@@ -169,7 +170,19 @@ export default function FiveMTaskManager() {
     }
   };
 
-  // Reste du code identique (filtres, stats, render...)
+  const addDeveloper = () => {
+    if (newDev.trim() && !developers.includes(newDev.trim())) {
+      setDevelopers([...developers, newDev.trim()]);
+      setNewDev('');
+    }
+  };
+
+  const removeDeveloper = (dev) => {
+    if (confirm(`Supprimer ${dev} de la liste ?`)) {
+      setDevelopers(developers.filter(d => d !== dev));
+    }
+  };
+
   const filteredTasks = tasks.filter(task => {
     if (filters.type !== 'tous' && task.type !== filters.type) return false;
     if (filters.status !== 'tous' && task.status !== filters.status) return false;
@@ -209,18 +222,17 @@ export default function FiveMTaskManager() {
   if (loading) {
     return (
       <div className={styles.container}>
-        <div style={{textAlign: 'center', padding: '100px', color: 'white'}}>
-          <h2>Chargement...</h2>
+        <div style={{textAlign: 'center', padding: '100px', color: 'white', fontSize: '1.5rem'}}>
+          <h2>⏳ Chargement...</h2>
         </div>
       </div>
     );
   }
 
-  // Tout le reste du JSX identique à avant...
   return (
     <div className={styles.container}>
       <Head>
-        <title>FiveM Project Manager - Gestion de Développement</title>
+        <title>FiveM Project Manager</title>
       </Head>
 
       <header className={styles.header}>
@@ -228,8 +240,297 @@ export default function FiveMTaskManager() {
         <p>Gestion collaborative du développement serveur - 🔴 EN TEMPS RÉEL</p>
       </header>
 
-      {/* Tout le reste du code JSX identique */}
-      {/* ... (stats, formulaire, liste des tâches) */}
+      <div className={styles.statsGrid}>
+        <div className={styles.statCard}>
+          <h3>{stats.total}</h3>
+          <p>Total Tâches</p>
+        </div>
+        <div className={styles.statCard} style={{borderLeft: '4px solid #6c757d'}}>
+          <h3>{stats.aFaire}</h3>
+          <p>À Faire</p>
+        </div>
+        <div className={styles.statCard} style={{borderLeft: '4px solid #0d6efd'}}>
+          <h3>{stats.enCours}</h3>
+          <p>En Cours</p>
+        </div>
+        <div className={styles.statCard} style={{borderLeft: '4px solid #fd7e14'}}>
+          <h3>{stats.enTest}</h3>
+          <p>En Test</p>
+        </div>
+        <div className={styles.statCard} style={{borderLeft: '4px solid #198754'}}>
+          <h3>{stats.approuve}</h3>
+          <p>Approuvés</p>
+        </div>
+        <div className={styles.statCard}>
+          <h3>{stats.scripts}/{stats.mappings}</h3>
+          <p>Scripts/Mappings</p>
+        </div>
+      </div>
+
+      <div className={styles.devSection}>
+        <h3>👥 Équipe de développement</h3>
+        <div className={styles.devList}>
+          {developers.map(dev => (
+            <span key={dev} className={styles.devBadge}>
+              {dev}
+              <button onClick={() => removeDeveloper(dev)}>×</button>
+            </span>
+          ))}
+        </div>
+        <div className={styles.addDevForm}>
+          <input
+            type="text"
+            placeholder="Ajouter un développeur..."
+            value={newDev}
+            onChange={(e) => setNewDev(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && addDeveloper()}
+          />
+          <button onClick={addDeveloper}>+ Ajouter</button>
+        </div>
+      </div>
+
+      <div className={styles.actions}>
+        <button 
+          className={styles.btnPrimary}
+          onClick={() => setShowForm(!showForm)}
+        >
+          {showForm ? '✕ Fermer' : '+ Nouvelle Tâche'}
+        </button>
+      </div>
+
+      {showForm && (
+        <div className={styles.taskForm}>
+          <h3>Créer une nouvelle tâche</h3>
+          <form onSubmit={addTask}>
+            <div className={styles.formRow}>
+              <div className={styles.formGroup}>
+                <label>Titre de la tâche *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Système de banque..."
+                  value={taskForm.title}
+                  onChange={(e) => setTaskForm({...taskForm, title: e.target.value})}
+                />
+              </div>
+            </div>
+
+            <div className={styles.formRow}>
+              <div className={styles.formGroup}>
+                <label>Type *</label>
+                <select
+                  value={taskForm.type}
+                  onChange={(e) => setTaskForm({...taskForm, type: e.target.value})}
+                >
+                  <option value="script">📜 Script</option>
+                  <option value="mapping">🗺️ Mapping</option>
+                </select>
+              </div>
+
+              <div className={styles.formGroup}>
+                <label>Priorité</label>
+                <select
+                  value={taskForm.priority}
+                  onChange={(e) => setTaskForm({...taskForm, priority: e.target.value})}
+                >
+                  <option value="haute">🔴 Haute</option>
+                  <option value="moyenne">🟡 Moyenne</option>
+                  <option value="basse">🟢 Basse</option>
+                </select>
+              </div>
+
+              <div className={styles.formGroup}>
+                <label>Créé par *</label>
+                <select
+                  required
+                  value={taskForm.created_by}
+                  onChange={(e) => setTaskForm({...taskForm, created_by: e.target.value})}
+                >
+                  <option value="">Sélectionner...</option>
+                  {developers.map(dev => (
+                    <option key={dev} value={dev}>{dev}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className={styles.formGroup}>
+              <label>Description courte</label>
+              <textarea
+                rows="2"
+                placeholder="Description rapide..."
+                value={taskForm.description}
+                onChange={(e) => setTaskForm({...taskForm, description: e.target.value})}
+              />
+            </div>
+
+            <div className={styles.formGroup}>
+              <label>Détails complets</label>
+              <textarea
+                rows="5"
+                placeholder="Détails techniques..."
+                value={taskForm.details}
+                onChange={(e) => setTaskForm({...taskForm, details: e.target.value})}
+              />
+            </div>
+
+            <button type="submit" className={styles.btnSuccess}>
+              ✓ Créer la tâche
+            </button>
+          </form>
+        </div>
+      )}
+
+      <div className={styles.filters}>
+        <select 
+          value={filters.type}
+          onChange={(e) => setFilters({...filters, type: e.target.value})}
+        >
+          <option value="tous">Tous types</option>
+          <option value="script">Scripts uniquement</option>
+          <option value="mapping">Mappings uniquement</option>
+        </select>
+
+        <select
+          value={filters.status}
+          onChange={(e) => setFilters({...filters, status: e.target.value})}
+        >
+          <option value="tous">Tous statuts</option>
+          <option value="à faire">À faire</option>
+          <option value="en cours">En cours</option>
+          <option value="en test">En test</option>
+          <option value="approuvé">Approuvés</option>
+        </select>
+
+        <select
+          value={filters.developer}
+          onChange={(e) => setFilters({...filters, developer: e.target.value})}
+        >
+          <option value="tous">Tous les devs</option>
+          {developers.map(dev => (
+            <option key={dev} value={dev}>{dev}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className={styles.tasksList}>
+        {filteredTasks.length === 0 ? (
+          <div className={styles.emptyState}>
+            <p>📋 Aucune tâche pour le moment. Créez-en une !</p>
+          </div>
+        ) : (
+          filteredTasks.map(task => (
+            <div key={task.id} className={styles.taskCard}>
+              <div className={styles.taskHeader}>
+                <div>
+                  <h4>
+                    {task.type === 'script' ? '📜' : '🗺️'} {task.title}
+                  </h4>
+                  <div className={styles.taskMeta}>
+                    <span 
+                      className={styles.badge}
+                      style={{backgroundColor: getStatusColor(task.status)}}
+                    >
+                      {task.status.toUpperCase()}
+                    </span>
+                    <span 
+                      className={styles.badge}
+                      style={{backgroundColor: getPriorityColor(task.priority)}}
+                    >
+                      Priorité {task.priority}
+                    </span>
+                  </div>
+                </div>
+                <button 
+                  className={styles.btnDelete}
+                  onClick={() => deleteTask(task.id)}
+                >
+                  🗑️
+                </button>
+              </div>
+
+              {task.description && (
+                <p className={styles.taskDescription}>{task.description}</p>
+              )}
+
+              {task.details && (
+                <div className={styles.taskDetails}>
+                  <strong>Détails:</strong>
+                  <p>{task.details}</p>
+                </div>
+              )}
+
+              <div className={styles.workflow}>
+                <div className={styles.workflowStep}>
+                  <strong>💡 Idée:</strong> {task.created_by}
+                </div>
+                
+                {task.in_progress_by && (
+                  <div className={styles.workflowStep}>
+                    <strong>⚙️ Traité par:</strong> {task.in_progress_by}
+                  </div>
+                )}
+
+                {task.tested_by && (
+                  <div className={styles.workflowStep}>
+                    <strong>🧪 Testé par:</strong> {task.tested_by}
+                  </div>
+                )}
+
+                {task.approved_by && (
+                  <div className={styles.workflowStep}>
+                    <strong>✅ Approuvé par:</strong> {task.approved_by}
+                  </div>
+                )}
+              </div>
+
+              <div className={styles.taskActions}>
+                {task.status === 'à faire' && (
+                  <div className={styles.actionGroup}>
+                    <label>Prendre en charge:</label>
+                    <select onChange={(e) => e.target.value && takeTask(task.id, e.target.value)}>
+                      <option value="">Sélectionner...</option>
+                      {developers.map(dev => (
+                        <option key={dev} value={dev}>{dev}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {task.status === 'en cours' && (
+                  <div className={styles.actionGroup}>
+                    <label>Marquer comme testé:</label>
+                    <select onChange={(e) => e.target.value && markAsTested(task.id, e.target.value)}>
+                      <option value="">Sélectionner...</option>
+                      {developers.map(dev => (
+                        <option key={dev} value={dev}>{dev}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {task.status === 'en test' && (
+                  <div className={styles.actionGroup}>
+                    <label>Approuver:</label>
+                    <select onChange={(e) => e.target.value && approveTask(task.id, e.target.value)}>
+                      <option value="">Sélectionner...</option>
+                      {developers.map(dev => (
+                        <option key={dev} value={dev}>{dev}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {task.status === 'approuvé' && (
+                  <div className={styles.approvedMessage}>
+                    ✅ Tâche complétée !
+                  </div>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }
