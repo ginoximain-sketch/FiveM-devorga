@@ -271,7 +271,7 @@ export default function FiveMTaskManager() {
     return (
       <div className={styles.container}>
         <header className={styles.header}>
-          <h1>🎮 Bastien Project Manager</h1>
+          <h1>🎮 Bastion Project Manager</h1>
           <p>Chargement des données...</p>
         </header>
       </div>
@@ -281,11 +281,11 @@ export default function FiveMTaskManager() {
   return (
     <div className={styles.container}>
       <Head>
-        <title>Bastien Project Manager</title>
+        <title>Bastion Project Manager</title>
       </Head>
 
       <header className={styles.header}>
-        <h1>🎮 Bastien Project Manager</h1>
+        <h1>🎮 Bastion Project Manager</h1>
         <p>Créé par Ginoxi avec amour ❤️</p>
       </header>
 
