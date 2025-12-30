@@ -51,7 +51,8 @@ export default function FiveMTaskManager() {
       .order('created_at', { ascending: false });
     
     if (error) {
-      console.error('Erreur:', error);
+      console.error('Erreur Supabase:', error);
+      alert('ERREUR: ' + error.message);
     } else {
       setTasks(data || []);
     }
@@ -81,7 +82,7 @@ export default function FiveMTaskManager() {
 
     if (error) {
       console.error('Erreur:', error);
-      alert('Erreur lors de la création');
+      alert('Erreur: ' + error.message);
     } else {
       setTaskForm({
         title: '',
@@ -219,15 +220,16 @@ export default function FiveMTaskManager() {
     }
   };
 
-/ / if (loading) {
- /   return (
- //     <div className={styles.container}>
-  //    <div style={{textAlign: 'center', padding: '100px', color: 'white', fontSize: '1.5rem'}}>
-   //       <h2>⏳ Chargement...</h2>
-    //    </div>
-    //  </div>
-  //  );
-  //}
+  if (loading) {
+    return (
+      <div className={styles.container}>
+        <header className={styles.header}>
+          <h1>🎮 FiveM Project Manager</h1>
+          <p>Chargement des données...</p>
+        </header>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.container}>
