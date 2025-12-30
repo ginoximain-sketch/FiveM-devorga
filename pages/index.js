@@ -219,15 +219,15 @@ export default function FiveMTaskManager() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className={styles.container}>
-        <div style={{textAlign: 'center', padding: '100px', color: 'white', fontSize: '1.5rem'}}>
-          <h2>⏳ Chargement...</h2>
-        </div>
-      </div>
-    );
-  }
+/ / if (loading) {
+ /   return (
+ //     <div className={styles.container}>
+  //    <div style={{textAlign: 'center', padding: '100px', color: 'white', fontSize: '1.5rem'}}>
+   //       <h2>⏳ Chargement...</h2>
+    //    </div>
+    //  </div>
+  //  );
+  //}
 
   return (
     <div className={styles.container}>
