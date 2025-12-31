@@ -431,3 +431,120 @@
     width: 100%;
   }
 }
+/* Système de bugs amélioré */
+.bugsList {
+  margin: 15px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bugItem {
+  background: white;
+  padding: 12px;
+  border-radius: 5px;
+  border-left: 3px solid #dc3545;
+}
+
+.bugHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 5px;
+}
+
+.bugNumber {
+  background: #dc3545;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.bugDescription {
+  margin: 5px 0 0 0;
+  color: #666;
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+}
+
+.addedBugsList {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 5px;
+  margin-bottom: 15px;
+}
+
+.addedBugsList h5 {
+  margin: 0 0 10px 0;
+  color: #333;
+}
+
+.addedBugItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  background: white;
+  padding: 10px;
+  border-radius: 5px;
+  margin-bottom: 8px;
+  border-left: 3px solid #ffc107;
+}
+
+.addedBugItem strong {
+  color: #333;
+  display: block;
+  margin-bottom: 3px;
+}
+
+.addedBugItem p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.btnRemoveBug {
+  background: #dc3545;
+  color: white;
+  border: none;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.addBugForm {
+  background: white;
+  padding: 15px;
+  border-radius: 5px;
+  margin-bottom: 15px;
+}
+
+.bugInput {
+  width: 100%;
+  padding: 10px;
+  border: 2px solid #e0e0e0;
+  border-radius: 5px;
+  font-size: 1rem;
+  font-family: inherit;
+}
+
+.btnAddBug {
+  width: 100%;
+  padding: 10px;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+  margin-top: 10px;
+}
+
+.btnAddBug:hover {
+  background: #218838;
+}
+
