@@ -28,6 +28,7 @@ export default function FiveMTaskManager() {
   const [rejectingTask, setRejectingTask] = useState(null);
   const [bugsList, setBugsList] = useState([]);
   const [currentBug, setCurrentBug] = useState({ title: '', description: '' });
+  const [selectedRejecter, setSelectedRejecter] = useState('');
 
   useEffect(() => {
     fetchTasks();
@@ -225,6 +226,7 @@ export default function FiveMTaskManager() {
       setRejectingTask(null);
       setBugsList([]);
       setCurrentBug({ title: '', description: '' });
+      setSelectedRejecter('');
     }
   };
 
@@ -232,6 +234,7 @@ export default function FiveMTaskManager() {
     setRejectingTask(null);
     setBugsList([]);
     setCurrentBug({ title: '', description: '' });
+    setSelectedRejecter('');
   };
 
   const deleteTask = async (taskId) => {
@@ -300,7 +303,7 @@ export default function FiveMTaskManager() {
     return (
       <div className={styles.container}>
         <header className={styles.header}>
-          <h1>🎮 Bastien Project Manager</h1>
+          <h1>🎮 Bastion FiveM Manager</h1>
           <p>Chargement des données...</p>
         </header>
       </div>
@@ -310,11 +313,11 @@ export default function FiveMTaskManager() {
   return (
     <div className={styles.container}>
       <Head>
-        <title>Bastien Project Manager</title>
+        <title>Bastion FiveM Manager</title>
       </Head>
 
       <header className={styles.header}>
-        <h1>🎮 Bastien Project Manager</h1>
+        <h1>🎮 Bastion FiveM Manager</h1>
         <p>Créé par Ginoxi avec amour ❤️</p>
       </header>
 
@@ -683,23 +686,57 @@ export default function FiveMTaskManager() {
                           >
                             Annuler
                           </button>
-                          <div className={styles.actionGroup} style={{flex: 1}}>
-                            <label>Rejeter et envoyer ({bugsList.length} bug{bugsList.length > 1 ? 's' : ''}) :</label>
-                            <select 
-                              onChange={(e) => {
-                                const devName = e.target.value;
-                                if (devName) {
-                                  rejectTask(task.id, devName);
+                          <div style={{flex: 1, display: 'flex', gap: '10px', alignItems: 'flex-end'}}>
+                            <div style={{flex: 1}}>
+                              <label style={{display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333'}}>
+                                Qui rejette ?
+                              </label>
+                              <select 
+                                value={selectedRejecter}
+                                onChange={(e) => setSelectedRejecter(e.target.value)}
+                                style={{
+                                  width: '100%', 
+                                  padding: '10px', 
+                                  borderRadius: '5px', 
+                                  border: '2px solid #e0e0e0', 
+                                  fontSize: '1rem',
+                                  fontFamily: 'inherit'
+                                }}
+                              >
+                                <option value="">Sélectionner...</option>
+                                {developers.map(dev => (
+                                  <option key={dev} value={dev}>{dev}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <button
+                              onClick={() => {
+                                if (!selectedRejecter) {
+                                  alert('Veuillez sélectionner qui rejette la tâche');
+                                  return;
                                 }
+                                if (bugsList.length === 0) {
+                                  alert('Veuillez ajouter au moins un bug');
+                                  return;
+                                }
+                                rejectTask(task.id, selectedRejecter);
                               }}
-                              disabled={bugsList.length === 0}
-                              style={{cursor: bugsList.length === 0 ? 'not-allowed' : 'pointer', opacity: bugsList.length === 0 ? 0.5 : 1}}
+                              disabled={bugsList.length === 0 || !selectedRejecter}
+                              style={{
+                                padding: '12px 24px',
+                                background: (bugsList.length === 0 || !selectedRejecter) ? '#ccc' : '#dc3545',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '5px',
+                                cursor: (bugsList.length === 0 || !selectedRejecter) ? 'not-allowed' : 'pointer',
+                                fontWeight: 'bold',
+                                fontSize: '1rem',
+                                whiteSpace: 'nowrap',
+                                fontFamily: 'inherit'
+                              }}
                             >
-                              <option value="">Qui rejette ?</option>
-                              {developers.map(dev => (
-                                <option key={dev} value={dev}>{dev}</option>
-                              ))}
-                            </select>
+                              ✓ Confirmer le rejet ({bugsList.length} bug{bugsList.length > 1 ? 's' : ''})
+                            </button>
                           </div>
                         </div>
                       </div>
