@@ -679,32 +679,31 @@ export default function FiveMTaskManager() {
                         </div>
                         
                         <div className={styles.rejectActions}>
-                          <div className={styles.actionGroup}>
-                            <label>Rejeter et envoyer la liste ({bugsList.length} bug{bugsList.length > 1 ? 's' : ''}) :</label>
-                            <select 
-                              onChange={(e) => {
-                                if (e.target.value) {
-                                  rejectTask(task.id, e.target.value);
-                                  e.target.value = '';
-                                }
-                              }}
-                              disabled={bugsList.length === 0}
-                            >
-                              <option value="">Qui rejette ?</option>
-                              {developers.map(dev => (
-                                <option key={dev} value={dev}>{dev}</option>
-                              ))}
-                            </select>
-                          </div>
-                          <button 
-                            onClick={cancelReject}
-                            className={styles.btnCancel}
-                          >
-                            Annuler
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
+  <div className={styles.actionGroup}>
+    <label>Rejeter et envoyer la liste ({bugsList.length} bug{bugsList.length > 1 ? 's' : ''}) :</label>
+    <select 
+      onChange={(e) => {
+        if (e.target.value) {
+          rejectTask(task.id, e.target.value);
+          e.target.value = '';
+        }
+      }}
+      disabled={bugsList.length === 0}
+    >
+      <option value="">Qui rejette ?</option>
+      {developers.map(dev => (
+        <option key={dev} value={dev}>{dev}</option>
+      ))}
+    </select>
+  </div>
+  <button 
+    onClick={cancelReject}
+    className={styles.btnCancel}
+  >
+    Annuler
+  </button>
+</div>
+
                       <div className={styles.approvalActions}>
                         <div className={styles.actionGroup}>
                           <label>✅ Approuver:</label>
