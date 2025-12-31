@@ -541,4 +541,201 @@ export default function FiveMTaskManager() {
               {task.details && (
                 <div className={styles.taskDetails}>
                   <strong>Détails:</strong>
-                  <p>{task.
+                  <p>{task.details}</p>
+                </div>
+              )}
+
+              {task.bugs_list && Array.isArray(task.bugs_list) && task.bugs_list.length > 0 && (
+                <div className={styles.bugsAlert}>
+                  <strong>🐛 Bugs à corriger ({task.bugs_list.length}) :</strong>
+                  <div className={styles.bugsList}>
+                    {task.bugs_list.map((bug, index) => (
+                      <div key={bug.id || index} className={styles.bugItem}>
+                        <div className={styles.bugHeader}>
+                          <span className={styles.bugNumber}>Bug #{index + 1}</span>
+                          <strong>{bug.title}</strong>
+                        </div>
+                        {bug.description && (
+                          <p className={styles.bugDescription}>{bug.description}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <small>Rejeté par {task.rejected_by} le {new Date(task.rejected_at).toLocaleString('fr-FR')}</small>
+                </div>
+              )}
+
+              <div className={styles.workflow}>
+                <div className={styles.workflowStep}>
+                  <strong>💡 Idée:</strong> {task.created_by}
+                </div>
+                
+                {task.in_progress_by && (
+                  <div className={styles.workflowStep}>
+                    <strong>⚙️ Traité par:</strong> {task.in_progress_by}
+                  </div>
+                )}
+
+                {task.tested_by && (
+                  <div className={styles.workflowStep}>
+                    <strong>🧪 Testé par:</strong> {task.tested_by}
+                  </div>
+                )}
+
+                {task.rejected_by && (
+                  <div className={styles.workflowStep}>
+                    <strong>❌ Rejeté par:</strong> {task.rejected_by}
+                  </div>
+                )}
+
+                {task.approved_by && (
+                  <div className={styles.workflowStep}>
+                    <strong>✅ Approuvé par:</strong> {task.approved_by}
+                  </div>
+                )}
+              </div>
+
+              <div className={styles.taskActions}>
+                {(task.status === 'à faire' || task.status === 'à corriger') && (
+                  <div className={styles.actionGroup}>
+                    <label>Prendre en charge:</label>
+                    <select onChange={(e) => e.target.value && takeTask(task.id, e.target.value)}>
+                      <option value="">Sélectionner...</option>
+                      {developers.map(dev => (
+                        <option key={dev} value={dev}>{dev}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {task.status === 'en cours' && (
+                  <div className={styles.actionGroup}>
+                    <label>Marquer comme testé:</label>
+                    <select onChange={(e) => e.target.value && markAsTested(task.id, e.target.value)}>
+                      <option value="">Sélectionner...</option>
+                      {developers.map(dev => (
+                        <option key={dev} value={dev}>{dev}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {task.status === 'en test' && (
+                  <>
+                    {rejectingTask === task.id ? (
+                      <div className={styles.rejectForm}>
+                        <h4>🐛 Ajouter des bugs à corriger</h4>
+                        
+                        {bugsList.length > 0 && (
+                          <div className={styles.addedBugsList}>
+                            <h5>Bugs ajoutés ({bugsList.length}) :</h5>
+                            {bugsList.map((bug) => (
+                              <div key={bug.id} className={styles.addedBugItem}>
+                                <div>
+                                  <strong>{bug.title}</strong>
+                                  {bug.description && <p>{bug.description}</p>}
+                                </div>
+                                <button 
+                                  onClick={() => removeBugFromList(bug.id)}
+                                  className={styles.btnRemoveBug}
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        
+                        <div className={styles.addBugForm}>
+                          <div className={styles.formGroup}>
+                            <label>Titre du bug *</label>
+                            <input
+                              type="text"
+                              placeholder="Ex: Le bouton ne fonctionne pas"
+                              value={currentBug.title}
+                              onChange={(e) => setCurrentBug({...currentBug, title: e.target.value})}
+                              className={styles.bugInput}
+                            />
+                          </div>
+                          
+                          <div className={styles.formGroup}>
+                            <label>Description détaillée</label>
+                            <textarea
+                              rows="3"
+                              placeholder="Détails du bug, étapes pour reproduire..."
+                              value={currentBug.description}
+                              onChange={(e) => setCurrentBug({...currentBug, description: e.target.value})}
+                              className={styles.bugTextarea}
+                            />
+                          </div>
+                          
+                          <button 
+                            onClick={addBugToList}
+                            className={styles.btnAddBug}
+                            type="button"
+                          >
+                            + Ajouter ce bug à la liste
+                          </button>
+                        </div>
+                        
+                        <div className={styles.rejectActions}>
+                          <div className={styles.actionGroup}>
+                            <label>Rejeter et envoyer la liste ({bugsList.length} bug{bugsList.length > 1 ? 's' : ''}) :</label>
+                            <select 
+                              onChange={(e) => {
+                                if (e.target.value) {
+                                  rejectTask(task.id, e.target.value);
+                                  e.target.value = '';
+                                }
+                              }}
+                              disabled={bugsList.length === 0}
+                            >
+                              <option value="">Qui rejette ?</option>
+                              {developers.map(dev => (
+                                <option key={dev} value={dev}>{dev}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <button 
+                            onClick={cancelReject}
+                            className={styles.btnCancel}
+                          >
+                            Annuler
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className={styles.approvalActions}>
+                        <div className={styles.actionGroup}>
+                          <label>✅ Approuver:</label>
+                          <select onChange={(e) => e.target.value && approveTask(task.id, e.target.value)}>
+                            <option value="">Sélectionner...</option>
+                            {developers.map(dev => (
+                              <option key={dev} value={dev}>{dev}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <button 
+                          onClick={() => setRejectingTask(task.id)}
+                          className={styles.btnReject}
+                        >
+                          ❌ Rejeter (bugs trouvés)
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {task.status === 'approuvé' && (
+                  <div className={styles.approvedMessage}>
+                    ✅ Tâche complétée !
+                  </div>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
