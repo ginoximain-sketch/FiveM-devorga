@@ -25,31 +25,31 @@ export default function FiveMTaskManager() {
     developer: 'tous'
   });
 
-  // État pour le système de rejet
+  // États pour le système de rejet avec plusieurs bugs
   const [rejectingTask, setRejectingTask] = useState(null);
-  const [bugsList, setBugsList] = useState('');
+  const [bugsList, setBugsList] = useState([]);
+  const [currentBug, setCurrentBug] = useState({ title: '', description: '' });
 
   useEffect(() => {
-  fetchTasks();
-  
-  // Polling ultra-rapide via notre API (contourne la CSP)
-  const interval = setInterval(async () => {
-    if (document.visibilityState === 'visible') {
-      try {
-        const response = await fetch('/api/realtime');
-        const { tasks: newTasks } = await response.json();
-        if (newTasks) {
-          setTasks(newTasks);
+    fetchTasks();
+    
+    // Polling ultra-rapide via notre API (contourne la CSP)
+    const interval = setInterval(async () => {
+      if (document.visibilityState === 'visible') {
+        try {
+          const response = await fetch('/api/realtime');
+          const { tasks: newTasks } = await response.json();
+          if (newTasks) {
+            setTasks(newTasks);
+          }
+        } catch (error) {
+          console.error('Erreur polling:', error);
         }
-      } catch (error) {
-        console.error('Erreur polling:', error);
       }
-    }
-  }, 1000); // Mise à jour toutes les 1 seconde
+    }, 1000);
 
-  return () => clearInterval(interval);
-}, []);
-
+    return () => clearInterval(interval);
+  }, []);
 
   const fetchTasks = async () => {
     setLoading(true);
@@ -76,7 +76,7 @@ export default function FiveMTaskManager() {
     const newTask = {
       ...taskForm,
       status: 'à faire',
-      bugs_list: null,
+      bugs_list: [],
       rejected_by: null,
       rejected_at: null,
       history: [{
@@ -117,7 +117,7 @@ export default function FiveMTaskManager() {
         assigned_to: devName,
         in_progress_by: devName,
         in_progress_at: new Date().toISOString(),
-        bugs_list: null,
+        bugs_list: [],
         rejected_by: null,
         rejected_at: null,
         history: [...(task.history || []), {
@@ -162,7 +162,7 @@ export default function FiveMTaskManager() {
         status: 'approuvé',
         approved_by: devName,
         approved_at: new Date().toISOString(),
-        bugs_list: null,
+        bugs_list: [],
         rejected_by: null,
         rejected_at: null,
         history: [...(task.history || []), {
@@ -176,9 +176,29 @@ export default function FiveMTaskManager() {
     if (error) console.error('Erreur:', error);
   };
 
+  const addBugToList = () => {
+    if (!currentBug.title.trim()) {
+      alert('Le bug doit avoir au moins un titre');
+      return;
+    }
+    
+    setBugsList([...bugsList, {
+      id: Date.now(),
+      title: currentBug.title,
+      description: currentBug.description,
+      added_at: new Date().toISOString()
+    }]);
+    
+    setCurrentBug({ title: '', description: '' });
+  };
+
+  const removeBugFromList = (bugId) => {
+    setBugsList(bugsList.filter(bug => bug.id !== bugId));
+  };
+
   const rejectTask = async (taskId, devName) => {
-    if (!bugsList.trim()) {
-      alert('Veuillez décrire les bugs à corriger');
+    if (bugsList.length === 0) {
+      alert('Veuillez ajouter au moins un bug avant de rejeter');
       return;
     }
 
@@ -196,7 +216,7 @@ export default function FiveMTaskManager() {
           action: 'Rejeté - Bugs à corriger',
           by: devName,
           at: new Date().toISOString(),
-          bugs: bugsList
+          bugs_count: bugsList.length
         }]
       })
       .eq('id', taskId);
@@ -205,8 +225,15 @@ export default function FiveMTaskManager() {
       console.error('Erreur:', error);
     } else {
       setRejectingTask(null);
-      setBugsList('');
+      setBugsList([]);
+      setCurrentBug({ title: '', description: '' });
     }
+  };
+
+  const cancelReject = () => {
+    setRejectingTask(null);
+    setBugsList([]);
+    setCurrentBug({ title: '', description: '' });
   };
 
   const deleteTask = async (taskId) => {
@@ -275,7 +302,7 @@ export default function FiveMTaskManager() {
     return (
       <div className={styles.container}>
         <header className={styles.header}>
-          <h1>🎮 Bastion Project Manager</h1>
+          <h1>🎮 Bastien Project Manager</h1>
           <p>Chargement des données...</p>
         </header>
       </div>
@@ -285,11 +312,11 @@ export default function FiveMTaskManager() {
   return (
     <div className={styles.container}>
       <Head>
-        <title>Bastion Project Manager</title>
+        <title>Bastien Project Manager</title>
       </Head>
 
       <header className={styles.header}>
-        <h1>🎮 Bastion Project Manager</h1>
+        <h1>🎮 Bastien Project Manager</h1>
         <p>Créé par Ginoxi avec amour ❤️</p>
       </header>
 
@@ -514,135 +541,4 @@ export default function FiveMTaskManager() {
               {task.details && (
                 <div className={styles.taskDetails}>
                   <strong>Détails:</strong>
-                  <p>{task.details}</p>
-                </div>
-              )}
-
-              {task.bugs_list && (
-                <div className={styles.bugsAlert}>
-                  <strong>🐛 Bugs à corriger :</strong>
-                  <p>{task.bugs_list}</p>
-                  <small>Rejeté par {task.rejected_by} le {new Date(task.rejected_at).toLocaleString('fr-FR')}</small>
-                </div>
-              )}
-
-              <div className={styles.workflow}>
-                <div className={styles.workflowStep}>
-                  <strong>💡 Idée:</strong> {task.created_by}
-                </div>
-                
-                {task.in_progress_by && (
-                  <div className={styles.workflowStep}>
-                    <strong>⚙️ Traité par:</strong> {task.in_progress_by}
-                  </div>
-                )}
-
-                {task.tested_by && (
-                  <div className={styles.workflowStep}>
-                    <strong>🧪 Testé par:</strong> {task.tested_by}
-                  </div>
-                )}
-
-                {task.rejected_by && (
-                  <div className={styles.workflowStep}>
-                    <strong>❌ Rejeté par:</strong> {task.rejected_by}
-                  </div>
-                )}
-
-                {task.approved_by && (
-                  <div className={styles.workflowStep}>
-                    <strong>✅ Approuvé par:</strong> {task.approved_by}
-                  </div>
-                )}
-              </div>
-
-              <div className={styles.taskActions}>
-                {(task.status === 'à faire' || task.status === 'à corriger') && (
-                  <div className={styles.actionGroup}>
-                    <label>Prendre en charge:</label>
-                    <select onChange={(e) => e.target.value && takeTask(task.id, e.target.value)}>
-                      <option value="">Sélectionner...</option>
-                      {developers.map(dev => (
-                        <option key={dev} value={dev}>{dev}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {task.status === 'en cours' && (
-                  <div className={styles.actionGroup}>
-                    <label>Marquer comme testé:</label>
-                    <select onChange={(e) => e.target.value && markAsTested(task.id, e.target.value)}>
-                      <option value="">Sélectionner...</option>
-                      {developers.map(dev => (
-                        <option key={dev} value={dev}>{dev}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {task.status === 'en test' && (
-                  <>
-                    {rejectingTask === task.id ? (
-                      <div className={styles.rejectForm}>
-                        <h4>🐛 Liste des bugs à corriger :</h4>
-                        <textarea
-                          rows="4"
-                          placeholder="Décrivez les bugs trouvés..."
-                          value={bugsList}
-                          onChange={(e) => setBugsList(e.target.value)}
-                          className={styles.bugsTextarea}
-                        />
-                        <div className={styles.rejectActions}>
-                          <select onChange={(e) => e.target.value && rejectTask(task.id, e.target.value)}>
-                            <option value="">Qui rejette ?</option>
-                            {developers.map(dev => (
-                              <option key={dev} value={dev}>{dev}</option>
-                            ))}
-                          </select>
-                          <button 
-                            onClick={() => {
-                              setRejectingTask(null);
-                              setBugsList('');
-                            }}
-                            className={styles.btnCancel}
-                          >
-                            Annuler
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className={styles.approvalActions}>
-                        <div className={styles.actionGroup}>
-                          <label>✅ Approuver:</label>
-                          <select onChange={(e) => e.target.value && approveTask(task.id, e.target.value)}>
-                            <option value="">Sélectionner...</option>
-                            {developers.map(dev => (
-                              <option key={dev} value={dev}>{dev}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <button 
-                          onClick={() => setRejectingTask(task.id)}
-                          className={styles.btnReject}
-                        >
-                          ❌ Rejeter (bugs trouvés)
-                        </button>
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {task.status === 'approuvé' && (
-                  <div className={styles.approvedMessage}>
-                    ✅ Tâche complétée !
-                  </div>
-                )}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
+                  <p>{task.
