@@ -25,7 +25,6 @@ export default function FiveMTaskManager() {
     developer: 'tous'
   });
 
-  // États pour le système de rejet avec plusieurs bugs
   const [rejectingTask, setRejectingTask] = useState(null);
   const [bugsList, setBugsList] = useState([]);
   const [currentBug, setCurrentBug] = useState({ title: '', description: '' });
@@ -33,7 +32,6 @@ export default function FiveMTaskManager() {
   useEffect(() => {
     fetchTasks();
     
-    // Polling ultra-rapide via notre API (contourne la CSP)
     const interval = setInterval(async () => {
       if (document.visibilityState === 'visible') {
         try {
@@ -679,31 +677,33 @@ export default function FiveMTaskManager() {
                         </div>
                         
                         <div className={styles.rejectActions}>
-  <div className={styles.actionGroup}>
-    <label>Rejeter et envoyer la liste ({bugsList.length} bug{bugsList.length > 1 ? 's' : ''}) :</label>
-    <select 
-      onChange={(e) => {
-        if (e.target.value) {
-          rejectTask(task.id, e.target.value);
-          e.target.value = '';
-        }
-      }}
-      disabled={bugsList.length === 0}
-    >
-      <option value="">Qui rejette ?</option>
-      {developers.map(dev => (
-        <option key={dev} value={dev}>{dev}</option>
-      ))}
-    </select>
-  </div>
-  <button 
-    onClick={cancelReject}
-    className={styles.btnCancel}
-  >
-    Annuler
-  </button>
-</div>
-
+                          <button 
+                            onClick={cancelReject}
+                            className={styles.btnCancel}
+                          >
+                            Annuler
+                          </button>
+                          <div className={styles.actionGroup} style={{flex: 1}}>
+                            <label>Rejeter et envoyer ({bugsList.length} bug{bugsList.length > 1 ? 's' : ''}) :</label>
+                            <select 
+                              onChange={(e) => {
+                                const devName = e.target.value;
+                                if (devName) {
+                                  rejectTask(task.id, devName);
+                                }
+                              }}
+                              disabled={bugsList.length === 0}
+                              style={{cursor: bugsList.length === 0 ? 'not-allowed' : 'pointer', opacity: bugsList.length === 0 ? 0.5 : 1}}
+                            >
+                              <option value="">Qui rejette ?</option>
+                              {developers.map(dev => (
+                                <option key={dev} value={dev}>{dev}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
                       <div className={styles.approvalActions}>
                         <div className={styles.actionGroup}>
                           <label>✅ Approuver:</label>
