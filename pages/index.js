@@ -195,7 +195,12 @@ export default function FiveMTaskManager() {
     setBugsList(bugsList.filter(bug => bug.id !== bugId));
   };
 
-  const rejectTask = async (taskId, devName) => {
+  const handleRejectTask = async (taskId) => {
+    if (!selectedRejecter) {
+      alert('Veuillez sélectionner qui rejette la tâche');
+      return;
+    }
+    
     if (bugsList.length === 0) {
       alert('Veuillez ajouter au moins un bug avant de rejeter');
       return;
@@ -209,11 +214,11 @@ export default function FiveMTaskManager() {
       .update({
         status: 'à corriger',
         bugs_list: bugsList,
-        rejected_by: devName,
+        rejected_by: selectedRejecter,
         rejected_at: new Date().toISOString(),
         history: [...(task.history || []), {
           action: 'Rejeté - Bugs à corriger',
-          by: devName,
+          by: selectedRejecter,
           at: new Date().toISOString(),
           bugs_count: bugsList.length
         }]
@@ -222,6 +227,7 @@ export default function FiveMTaskManager() {
 
     if (error) {
       console.error('Erreur:', error);
+      alert('Erreur lors du rejet');
     } else {
       setRejectingTask(null);
       setBugsList([]);
@@ -710,17 +716,8 @@ export default function FiveMTaskManager() {
                               </select>
                             </div>
                             <button
-                              onClick={() => {
-                                if (!selectedRejecter) {
-                                  alert('Veuillez sélectionner qui rejette la tâche');
-                                  return;
-                                }
-                                if (bugsList.length === 0) {
-                                  alert('Veuillez ajouter au moins un bug');
-                                  return;
-                                }
-                                rejectTask(task.id, selectedRejecter);
-                              }}
+                              type="button"
+                              onClick={() => handleRejectTask(task.id)}
                               disabled={bugsList.length === 0 || !selectedRejecter}
                               style={{
                                 padding: '12px 24px',
@@ -735,7 +732,7 @@ export default function FiveMTaskManager() {
                                 fontFamily: 'inherit'
                               }}
                             >
-                              ✓ Confirmer le rejet ({bugsList.length} bug{bugsList.length > 1 ? 's' : ''})
+                              ✓ Confirmer le rejet ({bugsList.length})
                             </button>
                           </div>
                         </div>
