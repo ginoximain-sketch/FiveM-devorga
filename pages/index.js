@@ -30,22 +30,26 @@ export default function FiveMTaskManager() {
   const [bugsList, setBugsList] = useState('');
 
   useEffect(() => {
-    fetchTasks();
-    
-    const subscription = supabase
-      .channel('tasks_changes')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'tasks' },
-        () => {
-          fetchTasks();
+  fetchTasks();
+  
+  // Polling ultra-rapide via notre API (contourne la CSP)
+  const interval = setInterval(async () => {
+    if (document.visibilityState === 'visible') {
+      try {
+        const response = await fetch('/api/realtime');
+        const { tasks: newTasks } = await response.json();
+        if (newTasks) {
+          setTasks(newTasks);
         }
-      )
-      .subscribe();
+      } catch (error) {
+        console.error('Erreur polling:', error);
+      }
+    }
+  }, 1000); // Mise à jour toutes les 1 seconde
 
-    return () => {
-      supabase.removeChannel(subscription);
-    };
-  }, []);
+  return () => clearInterval(interval);
+}, []);
+
 
   const fetchTasks = async () => {
     setLoading(true);
