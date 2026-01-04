@@ -5,7 +5,7 @@ import styles from '../styles/Dashboard.module.css';
 
 export default function FiveMTaskManager() {
   const [tasks, setTasks] = useState([]);
-  const [developers, setDevelopers] = useState(['Dev1', 'Dev2', 'Dev3', 'Dev4']);
+  const [developers, setDevelopers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newDev, setNewDev] = useState('');
   
@@ -32,6 +32,7 @@ export default function FiveMTaskManager() {
 
   useEffect(() => {
     fetchTasks();
+    fetchDevelopers();
     
     const interval = setInterval(async () => {
       if (document.visibilityState === 'visible') {
@@ -63,6 +64,19 @@ export default function FiveMTaskManager() {
       setTasks(data || []);
     }
     setLoading(false);
+  };
+
+  const fetchDevelopers = async () => {
+    const { data, error } = await supabase
+      .from('developers')
+      .select('*')
+      .order('created_at', { ascending: true });
+    
+    if (error) {
+      console.error('Erreur chargement devs:', error);
+    } else {
+      setDevelopers(data.map(d => d.name) || []);
+    }
   };
 
   const addTask = async (e) => {
@@ -254,16 +268,43 @@ export default function FiveMTaskManager() {
     }
   };
 
-  const addDeveloper = () => {
-    if (newDev.trim() && !developers.includes(newDev.trim())) {
-      setDevelopers([...developers, newDev.trim()]);
+  const addDeveloper = async () => {
+    if (!newDev.trim()) {
+      alert('Veuillez entrer un nom');
+      return;
+    }
+    
+    if (developers.includes(newDev.trim())) {
+      alert('Ce développeur existe déjà');
+      return;
+    }
+
+    const { error } = await supabase
+      .from('developers')
+      .insert([{ name: newDev.trim() }]);
+
+    if (error) {
+      console.error('Erreur ajout dev:', error);
+      alert('Erreur lors de l\'ajout du développeur');
+    } else {
       setNewDev('');
+      fetchDevelopers();
     }
   };
 
-  const removeDeveloper = (dev) => {
+  const removeDeveloper = async (dev) => {
     if (confirm(`Supprimer ${dev} de la liste ?`)) {
-      setDevelopers(developers.filter(d => d !== dev));
+      const { error } = await supabase
+        .from('developers')
+        .delete()
+        .eq('name', dev);
+      
+      if (error) {
+        console.error('Erreur suppression dev:', error);
+        alert('Erreur lors de la suppression');
+      } else {
+        fetchDevelopers();
+      }
     }
   };
 
